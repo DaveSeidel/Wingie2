@@ -66,6 +66,10 @@
 #define VOL 2
 #define slider_movement_detect 256
 
+#define MIN_NOTE 36
+#define MAX_NOTE 96
+#define NUM_NOTES 60
+
 struct MySettings : public midi::DefaultSettings
 {
   static const unsigned SysExMaxSize = 16;
@@ -112,6 +116,7 @@ bool source, key[2][12], keyPrev[2][12], firstPress[2] = {true, true};
 bool sourceChanged = false, sourceChanged2 = false;
 int note[2], octPrev[2], oct[2], Mode[2] = {POLY_MODE, POLY_MODE}, allKeys[2] = {0, 0}, currentPoly[2] = {0, 0};
 bool modeButtonState[2], modeButtonPressed[2], modeChangingFromKeys[2] = {false, false}, modeChangingFromMIDI[2] = {false, false}, duck_env_triggered[2] = {false, false};
+bool cavesTuned = false, reloadCaves = false;
 
 //
 // for MIDI
@@ -130,17 +135,11 @@ int cm_freq_prev[2][3][9] = {
     {62, 115, 218, 411, 777, 1500, 2800, 5200, 11000},
     {205, 304, 370, 523, 540, 800, 913, 1568, 2400},
     {212, 425, 531, 637, 1168, 2017, 2336, 2654, 3693}
-    // {130, 137, 163, 183, 218, 245, 261, 366, 436},
-    // {261, 274, 327, 366, 436, 490, 523, 732, 872},
-    // {523, 549, 654, 732, 872, 981, 1046, 1464, 1744}
   },
   {
     {62, 115, 218, 411, 777, 1500, 2800, 5200, 11000},
     {205, 304, 370, 523, 540, 800, 913, 1568, 2400},
     {212, 425, 531, 637, 1062, 2017, 2336, 2654, 3693}
-    // {130, 137, 163, 183, 218, 245, 261, 366, 436},
-    // {261, 274, 327, 366, 436, 490, 523, 732, 872},
-    // {523, 549, 654, 732, 872, 981, 1046, 1464, 1744}
   }
 };
 bool cm_ms[2][3][9]; // mute states
@@ -176,6 +175,10 @@ float alt_tunings[8][12] = {
   { 1., 21./20., 9./8., 7./6., 5./4., 21./16., 7./5., 147./100., 5./3., 7./4., 15./8., 49./25. }
 };
 
+// tuning table for notes MIN_NOTE through MAX_NOTE
+// indexed by note-MIN_NOTE
+float frequencies[NUM_NOTES];
+
 //
 // global settings
 //
@@ -205,6 +208,7 @@ void setup() {
   MIDI.begin(MIDI_CHANNEL_OMNI);
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleControlChange(handleControlChange);
+  // MIDI.setHandleProgramChange(handleProgramChange);
   MIDI.MidiInterface::turnThruOff();
 
   Serial.print("setup running on core ");
@@ -280,10 +284,6 @@ void alt_tuning_set(int tuning) {
   }
 }
 
-void set_caves_for_alt_tuning(int tuning) {
-  
-}
-
 // treat sliders as binary digits in base 2
 // all the way down == 0, else value
 // values from left to right: 4, 2, 1
@@ -297,4 +297,73 @@ int get_int_from_sliders() {
               binary_sliders[1] * 2 +
               binary_sliders[2] * 1;
   return value;
+}
+
+// mtof(note) = a3_freq * pow(2., (note - 69) / 12);
+float mtof(int note) {
+  float a3_freq = dsp.getParamValue("a3_freq");
+  return a3_freq * pow(2., (note - 69) / 12);
+}
+
+// mtoq(note) = f with {
+//     n = note % 12;                                          // scale degree (0-11)
+//     c = note - n;                                           // C note in given octave
+//     f = mtof(c) * (alt_tuning_ratios : ba.selectn(12, n));  // multiply C frequency by ratio per degree
+// };
+float mtoq(int note) {
+  if (!use_alt_tuning || alt_tuning_index < 0) {
+    return mtof(note);
+  }
+
+  int n = note % 12;
+  int c = note - n;
+  float std_freq = mtof(c);
+  return std_freq * alt_tunings[alt_tuning_index][n];
+}
+
+void build_freq_table() {
+  if (!use_alt_tuning || alt_tuning_index < 0) {
+    return;
+  }
+
+  for (int i = 0; i < NUM_NOTES; i++) {
+    int note = i + MIN_NOTE;
+    float freq = mtof(note);
+    frequencies[i] = freq;
+  }
+}
+
+#define OCT_OFS 12
+#define C0  60
+
+// bank 0: (60-12) to (71-12)
+// bank 1: 60 to 71
+// bank 2: (60+12) to (71+12)
+
+void tune_caves() {
+  if (!use_alt_tuning || alt_tuning_index < 0 || cavesTuned) {
+    return;
+  }
+
+  unsigned long start = millis();
+  for (int freq = 0; freq < 9; freq++) {
+    for (int bank = 0; bank < 3; bank++) {
+      const int offset = C0 + (OCT_OFS * (bank - 1));
+      if (freq % 2) {
+        // right: even
+        cm_freq[1][bank][freq] = std::round(frequencies[freq+offset]);
+      }
+      else {
+        // left: odd
+        cm_freq[0][bank][freq] = std::round(frequencies[freq+offset]);
+      }
+      delay(5);
+    }
+  }
+  unsigned long end = millis();
+  Serial.printf("Tuning caves took %lums\n", end - start);
+
+  cavesTuned = true;
+  reloadCaves = true;
+  Serial.println("Finished tuning caves");
 }

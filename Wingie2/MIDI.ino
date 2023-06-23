@@ -45,7 +45,7 @@ void MIDISetPitch(int ch, int mode, int pitch) {
 
 void handleControlChange (byte channel, byte number, byte value) {
 
-  Serial.printf("Incoming MIDI -- channel:%hhu, cc:%hhu, value:%hhu\n", channel, number, value);
+  Serial.printf("MIDI CC -> channel:%hhu, cc:%hhu, value:%hhu\n", channel, number, value);
 
   if (channel == midi_ch_l) MIDISetParam(0, number, value);
   if (channel == midi_ch_r) MIDISetParam(1, number, value);
@@ -102,6 +102,10 @@ void handleControlChange (byte channel, byte number, byte value) {
     }
   }
 
+}
+
+void handleProgramChange(byte ch, byte data) {
+  Serial.printf("MIDI PGM -> channel:%hhu, data:%hhu\n", ch, data);
 }
 
 void MIDISetParam(int ch, byte number, byte value) {
