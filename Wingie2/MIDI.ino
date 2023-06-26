@@ -55,6 +55,24 @@ void handleControlChange (byte channel, byte number, byte value) {
     MIDISetParam(1, number, value);
   }
 
+  if (channel == CC_MIDI_CH_TUNING && number == CC_TUNING) {
+    int t = 0;
+    if (value == 0) {
+      use_alt_tuning = 0;
+      alt_tuning_index = -1;
+      alt_tuning_set(-1);
+      dsp.setParamValue("use_alt_tuning", 0);
+      Serial.println("MIDI: Alt tuning disabled");
+    } else if (value < 9) {
+      t = value - 1;
+      use_alt_tuning = 1;
+      dsp.setParamValue("use_alt_tuning", 1);
+      alt_tuning_index = t;
+      alt_tuning_set(alt_tuning_index);
+      Serial.printf("MIDI: Alt tuning enabled: %d\n", t);
+    }
+  }
+
   if (channel == 14 or channel == 15) { // Cave Frequency Settings
     int ch = channel - 14;
     int cave = oct[ch] + 1;

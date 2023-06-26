@@ -49,6 +49,7 @@
 #define CC_MIX 11
 #define CC_DECAY 1
 #define CC_VOL 7
+#define CC_TUNING 23
 
 #define CC_MIDI_CH_L 20
 #define CC_MIDI_CH_R 21
@@ -57,6 +58,7 @@
 #define CC_A3_FREQ_LSB 55
 #define CC_CAVE_FREQ_1_MSB 23
 #define CC_CAVE_FREQ_1_LSB 55
+#define CC_MIDI_CH_TUNING 13
 
 #define MSB 0
 #define LSB 1
