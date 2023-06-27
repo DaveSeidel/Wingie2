@@ -290,7 +290,7 @@ void alt_tuning_set(int tuning) {
 }
 
 // treat sliders as binary digits in base 2
-// all the way down == 0, else value
+// all the way down == 0, else 1
 // values from left to right: 4, 2, 1
 int get_int_from_sliders() {
   int binary_sliders[3];
@@ -304,17 +304,10 @@ int get_int_from_sliders() {
   return value;
 }
 
-// mtof(note) = a3_freq * pow(2., (note - 69) / 12);
-float mtof(int note) {
-  float a3_freq = dsp.getParamValue("a3_freq");
+inline float mtof(int note) {
   return a3_freq * pow(2., (note - 69) / 12);
 }
 
-// mtoq(note) = f with {
-//     n = note % 12;                                          // scale degree (0-11)
-//     c = note - n;                                           // C note in given octave
-//     f = mtof(c) * (alt_tuning_ratios : ba.selectn(12, n));  // multiply C frequency by ratio per degree
-// };
 float mtoq(int note) {
   if (!use_alt_tuning || alt_tuning_index < 0) {
     return mtof(note);
@@ -322,8 +315,7 @@ float mtoq(int note) {
 
   int n = note % 12;
   int c = note - n;
-  float std_freq = mtof(c);
-  return std_freq * alt_tunings[alt_tuning_index][n];
+  return mtof(c) * alt_tunings[alt_tuning_index][n];
 }
 
 void build_freq_table() {
@@ -331,10 +323,10 @@ void build_freq_table() {
     return;
   }
 
-  for (int i = 0; i < NUM_NOTES; i++) {
-    int note = i + MIN_NOTE;
-    float freq = mtof(note);
-    frequencies[i] = freq;
+  a3_freq = dsp.getParamValue("a3_freq");
+  i = 0;
+  for (int note = MIN_NOTE; note <= MAX_NOTE; note++) {
+    frequencies[i++] = mtoq(note);
   }
 }
 
