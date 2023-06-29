@@ -43,34 +43,53 @@ void MIDISetPitch(int ch, int mode, int pitch) {
 
 }
 
-void handleControlChange (byte channel, byte number, byte value) {
+void MIDITuneCaves(byte cc, byte value) {
+    switch (cc) {
+      case CC_TUNING:
+        if (value == 0) {
+          use_alt_tuning = 0;
+          alt_tuning_index = -1;
+          alt_tuning_set(-1);
+          dsp.setParamValue("use_alt_tuning", 0);
+          Serial.println("MIDI: Alt tuning disabled");
+        } else if (value < 9) {
+          int t = value - 1;
+          use_alt_tuning = 1;
+          dsp.setParamValue("use_alt_tuning", 1);
+          alt_tuning_index = t;
+          alt_tuning_set(alt_tuning_index);
+          Serial.printf("MIDI: Alt tuning enabled: %d\n", t);
+        }
+        break;
+      case CC_TUNING_CAVES:
+        if (use_alt_tuning != 0 && alt_tuning_index != -1) {
+          alt_tuning_set(alt_tuning_index);
+          Serial.println("MIDI: Building freq table");
+          build_freq_table();
+          Serial.println("MIDI: Tuning caves");
+          tune_caves();
+          // delay(1000);
+        }
+        break;
+      default:
+        break;
+    }
+}
 
-  Serial.printf("MIDI CC -> channel:%hhu, cc:%hhu, value:%hhu\n", channel, number, value);
+void handleControlChange (byte channel, byte cc, byte value) {
 
-  if (channel == midi_ch_l) MIDISetParam(0, number, value);
-  if (channel == midi_ch_r) MIDISetParam(1, number, value);
+  // Serial.printf("MIDI CC -> channel:%hhu, cc:%hhu, value:%hhu\n", channel, cc, value);
+
+  if (channel == midi_ch_l) MIDISetParam(0, cc, value);
+  if (channel == midi_ch_r) MIDISetParam(1, cc, value);
 
   if (channel == midi_ch_both) {
-    MIDISetParam(0, number, value);
-    MIDISetParam(1, number, value);
+    MIDISetParam(0, cc, value);
+    MIDISetParam(1, cc, value);
   }
 
-  if (channel == CC_MIDI_CH_TUNING && number == CC_TUNING) {
-    int t = 0;
-    if (value == 0) {
-      use_alt_tuning = 0;
-      alt_tuning_index = -1;
-      alt_tuning_set(-1);
-      dsp.setParamValue("use_alt_tuning", 0);
-      Serial.println("MIDI: Alt tuning disabled");
-    } else if (value < 9) {
-      t = value - 1;
-      use_alt_tuning = 1;
-      dsp.setParamValue("use_alt_tuning", 1);
-      alt_tuning_index = t;
-      alt_tuning_set(alt_tuning_index);
-      Serial.printf("MIDI: Alt tuning enabled: %d\n", t);
-    }
+  if (channel == CC_MIDI_CH_TUNING) {
+    MIDITuneCaves(cc, value);
   }
 
   if (channel == 14 or channel == 15) { // Cave Frequency Settings
@@ -79,12 +98,12 @@ void handleControlChange (byte channel, byte number, byte value) {
 
     if (Mode[ch] == CAVE_MODE) {
       for (int v = 0; v < 9; v++) { // Cave Frequency Adjustment
-        if ((number == CC_CAVE_FREQ_1_MSB + v) or (number == CC_CAVE_FREQ_1_LSB + v)) {
+        if ((cc == CC_CAVE_FREQ_1_MSB + v) or (cc == CC_CAVE_FREQ_1_LSB + v)) {
 
-          if (number == CC_CAVE_FREQ_1_MSB + v) cave_freq_midi_value[ch][v][MSB] = value;
+          if (cc == CC_CAVE_FREQ_1_MSB + v) cave_freq_midi_value[ch][v][MSB] = value;
           else cave_freq_midi_value[ch][v][LSB] = value;
 
-          if (number == CC_CAVE_FREQ_1_MSB + v) {
+          if (cc == CC_CAVE_FREQ_1_MSB + v) {
             int midi_value_14bit = (cave_freq_midi_value[ch][v][MSB] << 7) | cave_freq_midi_value[ch][v][LSB];
             midi_value_14bit = max(midi_value_14bit, CAVE_LOWEST_FREQ);
             midi_value_14bit = min(midi_value_14bit, CAVE_HIGHEST_FREQ);
@@ -100,16 +119,16 @@ void handleControlChange (byte channel, byte number, byte value) {
 
   if (channel == 16) { // Global Settings
 
-    if (number == CC_MIDI_CH_L) midi_ch_l = value; dirty[0] = true;
-    if (number == CC_MIDI_CH_R) midi_ch_r = value; dirty[1] = true;
-    if (number == CC_MIDI_CH_BOTH) midi_ch_both = value; dirty[2] = true;
+    if (cc == CC_MIDI_CH_L) midi_ch_l = value; dirty[0] = true;
+    if (cc == CC_MIDI_CH_R) midi_ch_r = value; dirty[1] = true;
+    if (cc == CC_MIDI_CH_BOTH) midi_ch_both = value; dirty[2] = true;
 
-    if (number == CC_A3_FREQ_MSB || number == CC_A3_FREQ_LSB) {
+    if (cc == CC_A3_FREQ_MSB || cc == CC_A3_FREQ_LSB) {
 
-      if (number == CC_A3_FREQ_MSB) a3_freq_midi_value[MSB] = value;
-      if (number == CC_A3_FREQ_LSB) a3_freq_midi_value[LSB] = value;
+      if (cc == CC_A3_FREQ_MSB) a3_freq_midi_value[MSB] = value;
+      if (cc == CC_A3_FREQ_LSB) a3_freq_midi_value[LSB] = value;
 
-      if (number == CC_A3_FREQ_MSB) {
+      if (cc == CC_A3_FREQ_MSB) {
         int midi_value_14bit = (a3_freq_midi_value[MSB] << 7) | a3_freq_midi_value[LSB];
         float freq_offset = midi_value_14bit / 100. - 81.92;
 
@@ -120,10 +139,6 @@ void handleControlChange (byte channel, byte number, byte value) {
     }
   }
 
-}
-
-void handleProgramChange(byte ch, byte data) {
-  Serial.printf("MIDI PGM -> channel:%hhu, data:%hhu\n", ch, data);
 }
 
 void MIDISetParam(int ch, byte number, byte value) {

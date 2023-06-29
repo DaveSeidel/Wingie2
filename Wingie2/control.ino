@@ -209,7 +209,6 @@ void control( void * pvParameters ) {
   oct[0] = -!aw1.digitalRead(lOctPin[0]) + !aw1.digitalRead(lOctPin[1]);
   oct[1] = -!aw1.digitalRead(rOctPin[0]) + !aw1.digitalRead(rOctPin[1]);
 
-Serial.println("Reloading caves (1)");
 for (int ch = 0; ch < 2; ch++) {
     if (Mode[ch] == CAVE_MODE) {
       int cave = oct[ch] + 1;
@@ -281,11 +280,6 @@ for (int ch = 0; ch < 2; ch++) {
 
   if (use_alt_tuning != 0 && alt_tuning_index != -1) {
     alt_tuning_set(alt_tuning_index);
-    // Serial.println("Building freq table");
-    // build_freq_table();
-    // Serial.println("Tuning caves");
-    // tune_caves();
-    // delay(1000);
   }
 
   Serial.printf("Using %s tuning\n", use_alt_tuning == 0 ? "standard" : "alternate");
@@ -421,7 +415,6 @@ for (int ch = 0; ch < 2; ch++) {
           if (ch) dsp.setParamValue("/Wingie/right/mode_changed", 1);
           duck_env_triggered[ch] = true;
           duck_env_init_timer[ch] = currentMillis;
-          Serial.println("Reloading caves (2)");
           for (int v = 0; v < 9; v++ ) {
             cm_freq_set(ch, v, cm_freq[ch][cave][v]);
         }
@@ -462,7 +455,6 @@ for (int ch = 0; ch < 2; ch++) {
         for (int i = 0; i < 2; i++) digitalWrite(ledPin[ch][i], !bitRead(ledColor[Mode[ch]], i)); // 模式 LED 控制
 
         if (Mode[ch] != CAVE_MODE) {
-          Serial.println("Reloading caves (3)");
           for (int v = 0; v < 9; v++) {
             int cave = oct[ch] + 1;
             cm_mute_set(ch, v, cm_ms[ch][cave][v]);
@@ -689,7 +681,6 @@ for (int ch = 0; ch < 2; ch++) {
               cm_freq[ch][cave][v] += adj[ch];
               cm_freq[ch][cave][v] = max(cm_freq[ch][cave][v], CAVE_LOWEST_FREQ);
               cm_freq[ch][cave][v] = min(cm_freq[ch][cave][v], CAVE_HIGHEST_FREQ);
-              Serial.println("Reloading caves (4)");
               cm_freq_set(ch, v, cm_freq[ch][cave][v]);
             }
           }
@@ -772,7 +763,6 @@ for (int ch = 0; ch < 2; ch++) {
       }
     }
 
-    yield();
   }
 
 }

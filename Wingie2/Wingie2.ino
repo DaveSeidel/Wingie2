@@ -50,6 +50,7 @@
 #define CC_DECAY 1
 #define CC_VOL 7
 #define CC_TUNING 23
+#define CC_TUNING_CAVES 24
 
 #define CC_MIDI_CH_L 20
 #define CC_MIDI_CH_R 21
@@ -213,7 +214,6 @@ void setup() {
   MIDI.begin(MIDI_CHANNEL_OMNI);
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleControlChange(handleControlChange);
-  // MIDI.setHandleProgramChange(handleProgramChange);
   MIDI.MidiInterface::turnThruOff();
 
   Serial.print("setup running on core ");
@@ -304,19 +304,21 @@ int get_int_from_sliders() {
   return value;
 }
 
-inline float mtof(int note) {
-  return a3_freq * pow(2., (note - 69) / 12);
+float mtof(int note) {
+  return a3_freq * pow(2., (note - 69.) / 12.);
 }
 
-float mtoq(int note) {
+float mtoq(int note, float base) {
   if (!use_alt_tuning || alt_tuning_index < 0) {
     return mtof(note);
   }
 
   int n = note % 12;
-  int c = note - n;
-  return mtof(c) * alt_tunings[alt_tuning_index][n];
+  // Serial.printf("note=%d n=%d base=%f\n", note, n, base);
+  return base * alt_tunings[alt_tuning_index][n];
 }
+
+float c_freq[5];
 
 void build_freq_table() {
   if (!use_alt_tuning || alt_tuning_index < 0) {
@@ -324,9 +326,30 @@ void build_freq_table() {
   }
 
   a3_freq = dsp.getParamValue("a3_freq");
-  i = 0;
-  for (int note = MIN_NOTE; note <= MAX_NOTE; note++) {
-    frequencies[i++] = mtoq(note);
+  c_freq[0] = mtof(36);
+  c_freq[1] = mtof(48);
+  c_freq[2] = mtof(60);
+  c_freq[3] = mtof(72);
+  c_freq[4] = mtof(84);
+  
+  for (int i = 0; i < NUM_NOTES; i++) {
+    int note = MIN_NOTE + i;
+    float base;
+    if (36 <= note && note <= 47) {
+      base = c_freq[0];
+    } else if (48 <= note && note <= 59) {
+      base = c_freq[1];
+    } else if (60 <= note && note <= 71) {
+      base = c_freq[2];
+    } else if (72 <= note && note <= 83) {
+      base = c_freq[3];
+    } else {
+      base = c_freq[4];
+    }
+    float f = mtoq(note, base);
+    int fr = std::round(f);
+    frequencies[i] = fr;
+    // Serial.printf("frequencies[%d] (%d) = %d (%f) (%f)\n", i, note, fr, f, base);
   }
 }
 
@@ -342,23 +365,29 @@ void tune_caves() {
     return;
   }
 
-  unsigned long start = millis();
+  // unsigned long start = millis();
+  int lcnt = 0, rcnt = 0;
   for (int freq = 0; freq < 9; freq++) {
     for (int bank = 0; bank < 3; bank++) {
-      const int offset = C0 + (OCT_OFS * (bank - 1));
+      const int offset = C0 + (OCT_OFS * (bank - 1) - (OCT_OFS * 2)) + 3;
+      const int f = frequencies[freq+offset];
       if (freq % 2) {
         // right: even
-        cm_freq[1][bank][freq] = std::round(frequencies[freq+offset]);
+        cm_freq[1][bank][freq] = f;
+        // Serial.printf("R: bank:%d[%d] ofs:%d index:%d freq:%d\n", bank, freq, offset, freq+offset, f);
+        rcnt++;
       }
       else {
         // left: odd
-        cm_freq[0][bank][freq] = std::round(frequencies[freq+offset]);
+        cm_freq[0][bank][freq] = f;
+        // Serial.printf("L: bank:%d[%d] ofs:%d index:%d freq:%d\n", bank, freq, offset, freq+offset, f);
+        lcnt++;
       }
-      delay(5);
     }
+    // delay(0);
   }
-  unsigned long end = millis();
-  Serial.printf("Tuning caves took %lums\n", end - start);
+  // unsigned long end = millis();
+  // Serial.printf("Tuning caves took %lums (l:%d, r:%d)\n", end - start, lcnt, rcnt);
 
   cavesTuned = true;
   reloadCaves = true;
