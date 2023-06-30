@@ -12290,7 +12290,7 @@ class mydsp : public dsp {
 		m->declare("physmodels.lib/name", "Faust Physical Models Library");
 		m->declare("physmodels.lib/version", "0.1");
 		m->declare("platform.lib/name", "Generic Platform Library");
-		m->declare("platform.lib/version", "0.2");
+		m->declare("platform.lib/version", "0.3");
 		m->declare("signals.lib/name", "Faust Signal Routing Library");
 		m->declare("signals.lib/version", "0.3");
 		m->declare("version", "3.1");

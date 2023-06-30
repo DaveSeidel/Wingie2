@@ -280,6 +280,7 @@ for (int ch = 0; ch < 2; ch++) {
 
   if (use_alt_tuning != 0 && alt_tuning_index != -1) {
     alt_tuning_set(alt_tuning_index);
+    tune_caves();
   }
 
   Serial.printf("Using %s tuning\n", use_alt_tuning == 0 ? "standard" : "alternate");

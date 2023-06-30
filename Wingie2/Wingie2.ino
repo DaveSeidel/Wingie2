@@ -50,7 +50,6 @@
 #define CC_DECAY 1
 #define CC_VOL 7
 #define CC_TUNING 23
-#define CC_TUNING_CAVES 24
 
 #define CC_MIDI_CH_L 20
 #define CC_MIDI_CH_R 21
@@ -119,7 +118,6 @@ bool source, key[2][12], keyPrev[2][12], firstPress[2] = {true, true};
 bool sourceChanged = false, sourceChanged2 = false;
 int note[2], octPrev[2], oct[2], Mode[2] = {POLY_MODE, POLY_MODE}, allKeys[2] = {0, 0}, currentPoly[2] = {0, 0};
 bool modeButtonState[2], modeButtonPressed[2], modeChangingFromKeys[2] = {false, false}, modeChangingFromMIDI[2] = {false, false}, duck_env_triggered[2] = {false, false};
-bool cavesTuned = false, reloadCaves = false;
 
 //
 // for MIDI
@@ -353,43 +351,28 @@ void build_freq_table() {
   }
 }
 
-#define OCT_OFS 12
-#define C0  60
-
-// bank 0: (60-12) to (71-12)
-// bank 1: 60 to 71
-// bank 2: (60+12) to (71+12)
-
 void tune_caves() {
-  if (!use_alt_tuning || alt_tuning_index < 0 || cavesTuned) {
+  if (!use_alt_tuning || alt_tuning_index < 0) {
     return;
   }
 
-  // unsigned long start = millis();
-  int lcnt = 0, rcnt = 0;
-  for (int freq = 0; freq < 9; freq++) {
-    for (int bank = 0; bank < 3; bank++) {
-      const int offset = C0 + (OCT_OFS * (bank - 1) - (OCT_OFS * 2)) + 3;
-      const int f = frequencies[freq+offset];
-      if (freq % 2) {
-        // right: even
-        cm_freq[1][bank][freq] = f;
-        // Serial.printf("R: bank:%d[%d] ofs:%d index:%d freq:%d\n", bank, freq, offset, freq+offset, f);
-        rcnt++;
-      }
-      else {
-        // left: odd
-        cm_freq[0][bank][freq] = f;
-        // Serial.printf("L: bank:%d[%d] ofs:%d index:%d freq:%d\n", bank, freq, offset, freq+offset, f);
-        lcnt++;
-      }
-    }
-    // delay(0);
-  }
-  // unsigned long end = millis();
-  // Serial.printf("Tuning caves took %lums (l:%d, r:%d)\n", end - start, lcnt, rcnt);
+  build_freq_table();
 
-  cavesTuned = true;
-  reloadCaves = true;
+  for (int bank = 0; bank < 3; bank++) {
+    int bank_ofs = (bank + 2) * 12;
+    for (int v = 0; v < 9; v++) {
+      cm_freq[0][bank][v] = frequencies[bank_ofs+(v*2)];
+      cm_freq[1][bank][v] = frequencies[bank_ofs+(v*2)+1];
+    }
+  }
+
+  // for (int ch = 0; ch < 2; ch++) {
+  //   for (int bank = 0; bank < 3; bank++) {
+  //     for (int v = 0; v < 9; v++) {
+  //       Serial.printf("ch:%d bank:%d v[%d] = %d\n", ch, bank, v, cm_freq[ch][bank][v]);
+  //     }
+  //   }
+  // }
+
   Serial.println("Finished tuning caves");
 }
