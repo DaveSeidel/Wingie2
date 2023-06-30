@@ -251,7 +251,7 @@ for (int ch = 0; ch < 2; ch++) {
   modeButtonState[1] = aw1.digitalRead(7);
 
   if (!modeButtonState[0] && !modeButtonState[1]) {
-    // both buttons
+    // both buttons -- CLEAR ALL PREFS AND REBOOT
     Serial.printf("Clearing prefs!\n");
     prefs.begin("settings", RW_MODE);
     prefs.clear();

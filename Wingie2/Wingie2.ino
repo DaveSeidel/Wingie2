@@ -302,10 +302,12 @@ int get_int_from_sliders() {
   return value;
 }
 
+// standard conversion, MIDI note to frequency (equal temperament)
 float mtof(int note) {
   return a3_freq * pow(2., (note - 69.) / 12.);
 }
 
+// MIDI note to frequency in the current alternate tuning 
 float mtoq(int note, float base) {
   if (!use_alt_tuning || alt_tuning_index < 0) {
     return mtof(note);
@@ -316,19 +318,23 @@ float mtoq(int note, float base) {
   return base * alt_tunings[alt_tuning_index][n];
 }
 
-float c_freq[5];
-
+// build a simple lookup table with frequencies for all notes in the range we support
+// frequencies[] is 0-based, indexed by note_number-MIN_NOTE
+// we use this is used to make cave tuning faster
 void build_freq_table() {
   if (!use_alt_tuning || alt_tuning_index < 0) {
     return;
   }
 
+  // some pre-computation to make things faster
   a3_freq = dsp.getParamValue("a3_freq");
-  c_freq[0] = mtof(36);
-  c_freq[1] = mtof(48);
-  c_freq[2] = mtof(60);
-  c_freq[3] = mtof(72);
-  c_freq[4] = mtof(84);
+  float c_freq[5] = {
+    mtof(36);
+    mtof(48);
+    mtof(60);
+    mtof(72);
+    mtof(84);
+  }
   
   for (int i = 0; i < NUM_NOTES; i++) {
     int note = MIN_NOTE + i;
@@ -345,12 +351,17 @@ void build_freq_table() {
       base = c_freq[4];
     }
     float f = mtoq(note, base);
-    int fr = std::round(f);
+    int fr = std::round(f);     // caves use integer values
     frequencies[i] = fr;
     // Serial.printf("frequencies[%d] (%d) = %d (%f) (%f)\n", i, note, fr, f, base);
   }
 }
 
+// tune caves to match the current alternate tuning (if any)
+// left channel caves gets even-numbered scale tones:
+//    C, D, E, F#, G#, A#, C, D, E
+// left channel caves gets odd-numbered scale tones:
+//    C#, D#, F, G, A, B, A#, C#, D#, F
 void tune_caves() {
   if (!use_alt_tuning || alt_tuning_index < 0) {
     return;
@@ -361,8 +372,9 @@ void tune_caves() {
   for (int bank = 0; bank < 3; bank++) {
     int bank_ofs = (bank + 2) * 12;
     for (int v = 0; v < 9; v++) {
-      cm_freq[0][bank][v] = frequencies[bank_ofs+(v*2)];
-      cm_freq[1][bank][v] = frequencies[bank_ofs+(v*2)+1];
+      const int i = bank_ofs + (v * 2);
+      cm_freq[0][bank][v] = frequencies[i];
+      cm_freq[1][bank][v] = frequencies[i+1];
     }
   }
 
