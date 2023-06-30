@@ -263,10 +263,11 @@ void cm_freq_set(byte kb, byte voice, int freq) {
   dsp.setParamValue(str, freq);
 }
 
-// tuning param >= 0 is index into ratio set
-// tuning param < 0 means set ratios to 0
+// create an array of the ratios used in this tuning
+// tuning param >= 0 is index into ratios
+// tuning param < 0 set ratios to 0
 void alt_tuning_set(int tuning) {
-  char buff[80];
+  char buff[20];
   std::string str;
   float ratio = 0.0;
 
@@ -288,7 +289,7 @@ void alt_tuning_set(int tuning) {
 }
 
 // treat sliders as binary digits in base 2
-// all the way down == 0, else 1
+// if slider is all the way down, use 0, else use 1
 // values from left to right: 4, 2, 1
 int get_int_from_sliders() {
   int binary_sliders[3];
@@ -296,10 +297,9 @@ int get_int_from_sliders() {
     int tmp = analogRead(potPin[i]);
     binary_sliders[i] = tmp > 0 ? 1 : 0;
   }
-  int value = binary_sliders[0] * 4 +
-              binary_sliders[1] * 2 +
-              binary_sliders[2] * 1;
-  return value;
+  return binary_sliders[0] * 4 +
+         binary_sliders[1] * 2 +
+         binary_sliders[2] * 1;
 }
 
 // standard conversion, MIDI note to frequency (equal temperament)
@@ -313,9 +313,7 @@ float mtoq(int note, float base) {
     return mtof(note);
   }
 
-  int n = note % 12;
-  // Serial.printf("note=%d n=%d base=%f\n", note, n, base);
-  return base * alt_tunings[alt_tuning_index][n];
+  return base * alt_tunings[alt_tuning_index][note % 12];
 }
 
 // build a simple lookup table with frequencies for all notes in the range we support
@@ -326,8 +324,10 @@ void build_freq_table() {
     return;
   }
 
-  // some pre-computation to make things faster
+  // always get current value
   a3_freq = dsp.getParamValue("a3_freq");
+
+  // some pre-computation to make things faster
   float c_freq[5] = {
     mtof(36);
     mtof(48);
@@ -337,7 +337,8 @@ void build_freq_table() {
   }
   
   for (int i = 0; i < NUM_NOTES; i++) {
-    int note = MIN_NOTE + i;
+    const int note = MIN_NOTE + i;
+
     float base;
     if (36 <= note && note <= 47) {
       base = c_freq[0];
@@ -350,10 +351,9 @@ void build_freq_table() {
     } else {
       base = c_freq[4];
     }
-    float f = mtoq(note, base);
-    int fr = std::round(f);     // caves use integer values
-    frequencies[i] = fr;
-    // Serial.printf("frequencies[%d] (%d) = %d (%f) (%f)\n", i, note, fr, f, base);
+
+    // caves use integer values
+    frequencies[i] = std::round(mtoq(note, base));
   }
 }
 
