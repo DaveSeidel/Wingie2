@@ -329,12 +329,12 @@ void build_freq_table() {
 
   // some pre-computation to make things faster
   float c_freq[5] = {
-    mtof(36);
-    mtof(48);
-    mtof(60);
-    mtof(72);
-    mtof(84);
-  }
+    mtof(36),
+    mtof(48),
+    mtof(60),
+    mtof(72),
+    mtof(84)
+  };
   
   for (int i = 0; i < NUM_NOTES; i++) {
     const int note = MIN_NOTE + i;
